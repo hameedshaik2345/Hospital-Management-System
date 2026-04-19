@@ -136,6 +136,7 @@ Route::middleware('auth')->group(function () {
         Route::patch('/profile', [AdminProfileController::class, 'update'])->name('profile.update');
         Route::get('/schedule/export-pdf', [ExportController::class, 'exportAdminSchedule'])->name('schedule.export.admin');
         Route::get('/history/export-pdf', [ExportController::class, 'exportAdminHistory'])->name('history.export.admin');
+        Route::get('/appointments/{appointment}/export-pdf', [ExportController::class, 'exportPatientConfirmation'])->name('appointments.export.patient');
     });
 
     // --- PHARMACIST-ONLY ROUTES ---

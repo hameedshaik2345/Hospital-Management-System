@@ -147,8 +147,8 @@ class AppointmentBookingController extends Controller
             $reason = 'Consultation';
         }
 
-        $group = floor(($booking['token_number'] - 1) / 10);
-        $appointmentTime = \Carbon\Carbon::parse($appointmentDateStr)->setTime(9 + floor($group / 2), ($group % 2) * 30, 0);
+        $timing = Appointment::calculateTokenTiming($booking['token_number'], $appointmentDateStr);
+        $appointmentTime = $timing['start'];
 
         $appointment = Appointment::create([
             'patient_id' => $booking['patient']->id,
@@ -269,9 +269,9 @@ class AppointmentBookingController extends Controller
 
         $allTokens = [];
         for ($i = 1; $i <= 100; $i++) {
-            $group = floor(($i - 1) / 10);
-            $startTime = $date->copy()->setTime(9 + floor($group / 2), ($group % 2) * 30, 0);
-            $endTime = $startTime->copy()->addMinutes(30);
+            $timing = \App\Models\Appointment::calculateTokenTiming($i, $date);
+            $startTime = $timing['start'];
+            $endTime = $timing['end'];
 
             $isPast = false;
             if ($date->isToday()) {

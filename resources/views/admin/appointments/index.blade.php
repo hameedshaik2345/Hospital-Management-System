@@ -31,7 +31,16 @@
         </div>
     </div>
 
-    @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
+    @if (session('success'))
+        <div class="alert alert-success d-flex justify-content-between align-items-center">
+            <span>{{ session('success') }}</span>
+            @if(session('last_booked_id'))
+                <a href="{{ route('admin.appointments.export.patient', session('last_booked_id')) }}" class="btn btn-sm btn-light border fw-bold text-success">
+                    <i class="bi bi-file-earmark-pdf-fill"></i> Download Receipt
+                </a>
+            @endif
+        </div>
+    @endif
      @if ($errors->any())<div class="alert alert-danger"><ul class="mb-0">@foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
 
     <!-- Appointments Table -->
@@ -177,6 +186,11 @@
                     <h6 class="mt-4">Patient Information</h6><div class="row"><div class="col-md-6"><p><small class="text-muted">Name</small><br>${app.patient.name}</p></div><div class="col-md-6"><p><small class="text-muted">Contact</small><br>${app.patient.phone_number}</p></div></div>
                     <hr><h6 class="mt-4">Doctor Information</h6><div class="row"><div class="col-md-6"><p><small class="text-muted">Name</small><br>${app.doctor.name}</p></div><div class="col-md-6"><p><small class="text-muted">Specialty</small><br>${app.doctor.specialty}</p></div></div>
                     <hr><h6 class="mt-4">Appointment Details</h6><div class="row"><div class="col-md-6"><p><small class="text-muted">Date & Time</small><br>${appDate.toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' })}</p></div><div class="col-md-6"><p><small class="text-muted">Reason</small><br>${app.reason || 'Not given'}</p></div></div>
+                    <div class="mt-4 pt-3 border-top d-flex justify-content-center">
+                        <a href="/admin/appointments/${app.id}/export-pdf" class="btn btn-primary px-4 py-2 shadow-sm fw-bold">
+                            <i class="bi bi-printer-fill me-2"></i> Print Confirmation PDF
+                        </a>
+                    </div>
                 </div>
             `;
         });

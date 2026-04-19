@@ -146,9 +146,9 @@ class AdminAppointmentController extends Controller
 
         $allTokens = [];
         for ($i = 1; $i <= 100; $i++) {
-            $group = floor(($i - 1) / 10);
-            $startTime = $date->copy()->setTime(9 + floor($group / 2), ($group % 2) * 30, 0);
-            $endTime = $startTime->copy()->addMinutes(30);
+            $timing = Appointment::calculateTokenTiming($i, $date);
+            $startTime = $timing['start'];
+            $endTime = $timing['end'];
 
             $allTokens[] = [
                 'token' => $i,
@@ -195,10 +195,10 @@ class AdminAppointmentController extends Controller
             ]
         );
 
-        $group = floor(($validated['token_number'] - 1) / 10);
-        $appointmentTime = \Carbon\Carbon::parse($dateStr)->setTime(9 + floor($group / 2), ($group % 2) * 30, 0);
+        $timing = Appointment::calculateTokenTiming($validated['token_number'], $dateStr);
+        $appointmentTime = $timing['start'];
 
-        Appointment::create([
+        $appointment = Appointment::create([
             'patient_id' => $patient->id,
             'doctor_id' => $doctor->id,
             'doctor_name' => $doctor->name,
@@ -210,7 +210,9 @@ class AdminAppointmentController extends Controller
             'token_number' => $validated['token_number'],
         ]);
 
-        return redirect()->route('admin.appointments.index')->with('success', 'Walk-in appointment booked successfully! Token: ' . $validated['token_number']);
+        return redirect()->route('admin.appointments.index')
+            ->with('success', 'Walk-in appointment booked successfully! Token: ' . $validated['token_number'])
+            ->with('last_booked_id', $appointment->id);
     }
 
 public function edit(Appointment $appointment)

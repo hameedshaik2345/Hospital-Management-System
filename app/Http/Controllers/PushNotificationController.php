@@ -79,18 +79,38 @@ class PushNotificationController extends Controller
         ]));
 
         $signingInput = "$header.$claims";
-        $privateKeyResource = openssl_pkey_get_private(self::vapidPrivateToPem($vapidPrivateKey));
-        openssl_sign($signingInput, $signature, $privateKeyResource, OPENSSL_ALGO_SHA256);
-        $jwtToken = "$signingInput." . self::base64UrlEncode($signature);
+        $privateKeyPem = self::vapidPrivateToPem($vapidPrivateKey);
+        $privateKeyResource = openssl_pkey_get_private($privateKeyPem);
+        
+        if (!$privateKeyResource) {
+            Log::error("Failed to load VAPID private key.");
+            return;
+        }
+
+        if (!openssl_sign($signingInput, $signature, $privateKeyResource, OPENSSL_ALGO_SHA256)) {
+            Log::error("Failed to sign VAPID JWT.");
+            return;
+        }
+        
+        // Convert DER signature to raw R|S (64 bytes)
+        $rawSignature = self::derToRawSignature($signature, 64);
+        $jwtToken = "$signingInput." . self::base64UrlEncode($rawSignature);
 
         $authHeader = "vapid t=$jwtToken, k=$vapidPublicKey";
 
         // Encrypt the payload
-        [$encryptedPayload, $salt, $serverPublicKey] = self::encryptPayload(
+        $encryptionData = self::encryptPayload(
             $payloadJson,
             $subscription->auth_token,
             $subscription->p256dh_key
         );
+
+        if (!$encryptionData) {
+            Log::error("Failed to encrypt push payload.");
+            return;
+        }
+
+        [$encryptedPayload, $salt, $serverPublicKey] = $encryptionData;
 
         // Send the request
         $ch = curl_init($subscription->endpoint);
@@ -108,7 +128,20 @@ class PushNotificationController extends Controller
         ]);
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error = curl_error($ch);
         curl_close($ch);
+
+        if ($response === false) {
+            throw new \Exception("CURL failure: $error");
+        }
+
+        if ($httpCode === 410 || $httpCode === 404) {
+            throw new \Exception("Subscription expired or not found (HTTP $httpCode)");
+        }
+
+        if ($httpCode < 200 || $httpCode >= 300) {
+            throw new \Exception("Push service returned HTTP $httpCode: $response");
+        }
 
         Log::info("Push sent to user. HTTP: $httpCode");
     }
@@ -128,8 +161,18 @@ class PushNotificationController extends Controller
         $clientPublicKey = base64_decode(strtr($p256dhKey, '-_', '+/'));
         $authSecret = base64_decode(strtr($authToken, '-_', '+/'));
 
-        $clientPublicKeyResource = openssl_pkey_get_public($clientPublicKey);
-        openssl_dh_compute_key($sharedSecret, $clientPublicKeyResource, $serverPrivateKey);
+        // Convert raw client public key to PEM
+        $clientPublicKeyPem = self::rawPubKeyToPem($clientPublicKey);
+        $clientPublicKeyResource = openssl_pkey_get_public($clientPublicKeyPem);
+        
+        if (!$clientPublicKeyResource) {
+            return null;
+        }
+
+        // Compute shared secret using ECDH
+        if (!openssl_pkey_derive($clientPublicKeyResource, $serverPrivateKey, $sharedSecret)) {
+            return null;
+        }
 
         // HKDF PRK
         $prk = hash_hmac('sha256', $sharedSecret, $authSecret, true);
@@ -175,9 +218,30 @@ class PushNotificationController extends Controller
     private static function vapidPrivateToPem($base64Key)
     {
         $keyData = base64_decode(strtr($base64Key, '-_', '+/'));
-        // Construct a proper EC private key PEM
+        // Construct a proper EC private key PEM (SEC1 format)
         $der = "\x30\x77\x02\x01\x01\x04\x20" . $keyData . "\xa0\x0a\x06\x08\x2a\x86\x48\xce\x3d\x03\x01\x07";
-        $pem = "-----BEGIN EC PRIVATE KEY-----\n" . chunk_split(base64_encode($der), 64, "\n") . "-----END EC PRIVATE KEY-----\n";
-        return $pem;
+        return "-----BEGIN EC PRIVATE KEY-----\n" . chunk_split(base64_encode($der), 64, "\n") . "-----END EC PRIVATE KEY-----\n";
+    }
+
+    private static function rawPubKeyToPem($rawKey)
+    {
+        // P-256 Public Key Header
+        $derHeader = pack('H*', '3059301306072a8648ce3d020106082a8648ce3d030107034200');
+        $der = $derHeader . $rawKey;
+        return "-----BEGIN PUBLIC KEY-----\n" . chunk_split(base64_encode($der), 64, "\n") . "-----END PUBLIC KEY-----\n";
+    }
+
+    private static function derToRawSignature($der, $length)
+    {
+        $signature = unpack('C*', $der);
+        $pos = 3;
+        $rLen = $signature[$pos++];
+        if ($signature[$pos] === 0) { $pos++; $rLen--; }
+        $r = substr($der, $pos - 1, $rLen);
+        $pos += $rLen + 1;
+        $sLen = $signature[$pos++];
+        if ($signature[$pos] === 0) { $pos++; $sLen--; }
+        $s = substr($der, $pos - 1, $sLen);
+        return str_pad($r, $length / 2, "\x00", STR_PAD_LEFT) . str_pad($s, $length / 2, "\x00", STR_PAD_LEFT);
     }
 }

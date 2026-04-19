@@ -56,12 +56,13 @@ class ExportController extends Controller
     }
     // In ExportController.php
 
-public function exportPatientConfirmation(Appointment $appointment)
-{
-    // Security check: Ensure the logged-in user owns this appointment
-    if ($appointment->patient_id !== Auth::id()) {
-        abort(403, 'Unauthorized Action');
-    }
+    public function exportPatientConfirmation(Appointment $appointment)
+    {
+        $user = Auth::user();
+        // Security check: Allow if the logged-in user is the patient OR is an admin
+        if ($appointment->patient_id !== $user->id && $user->role !== 'admin') {
+            abort(403, 'Unauthorized Action');
+        }
 
     $data = ['appointment' => $appointment->load(['patient', 'doctor'])];
     $pdf = Pdf::loadView('pdf.confirmation', $data);
