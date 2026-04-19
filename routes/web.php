@@ -150,3 +150,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/staff/dashboard', [StaffDashboardController::class, 'index'])->name('staff.dashboard.router');
 
 });
+
+// --- UTILITY ROUTES ---
+// Temporary route to run migrations on Vercel (visit once then delete for security)
+Route::get('/safe-migrate', function () {
+    try {
+        \Illuminate\Support\Facades\Artisan::call('migrate:fresh', ['--seed' => true, '--force' => true]);
+        return "Database Migrated and Seeded Successfully!";
+    } catch (\Exception $e) {
+        return "Error: " . $e->getMessage();
+    }
+});
