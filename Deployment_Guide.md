@@ -85,6 +85,36 @@ php artisan view:cache
 
 ---
 
+## 🚀 Deployment to Vercel (Recommended Free Option)
+Vercel is great for the frontend & logic, but requires a Cloud Database (not SQLite).
+
+### 1. Database Setup (Neon.tech)
+1. Go to [Neon.tech](https://neon.tech/) and create a free project.
+2. Under "Connection Details", copy the **Postgres Connection String**. It will look like: 
+   `postgresql://owner:pass@host/neondb?sslmode=require`
+
+### 2. Vercel Setup
+1. Import your repository to Vercel.
+2. In the **Environment Variables** section, add:
+   - `DB_CONNECTION`: `pgsql`
+   - `DB_URL`: (Paste your Neon connection string)
+   - `APP_KEY`: (Copy from your local .env)
+   - `APP_URL`: `https://your-app-name.vercel.app`
+   - `APP_ENV`: `production`
+   - `APP_DEBUG`: `false`
+   - `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`
+   - `FAST2SMS_API_KEY`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`
+
+### 3. Database Migration
+Since Vercel is serverless, you need to run migrations manually from your local machine once pointing to the Neon DB.
+
+**Local Migration to Cloud:**
+1. Temporarily paste your Neon `DB_URL` into your local `.env`.
+2. Run: `php artisan migrate --force --seed`
+3. Remember to revert your local `.env` back to SQLite afterwards.
+
+---
+
 ## 3. Important Production Notes
 
 ### 🔒 SSL (HTTPS) is MANDATORY
