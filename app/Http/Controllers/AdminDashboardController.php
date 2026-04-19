@@ -11,16 +11,49 @@ class AdminDashboardController extends Controller
 {
     public function index()
     {
+        $adminHospital = auth()->user()->hospital_name;
+
+        // Base Queries
+        $patientsQuery = User::where('role', 'patient');
+        
+        $doctorsQuery = User::where('role', 'doctor');
+        if ($adminHospital) {
+            $doctorsQuery->whereHas('doctorProfile', function ($query) use ($adminHospital) {
+                $query->where('hospital_name', $adminHospital);
+            });
+        }
+        $doctorIds = $doctorsQuery->pluck('id');
+
+        $appointmentsQuery = Appointment::query();
+        if ($adminHospital) {
+            $appointmentsQuery->whereIn('doctor_id', $doctorIds);
+        }
+
         // Stats Cards Data
-        $totalPatients = User::where('role', 'patient')->count();
-        $totalDoctors = User::where('role', 'doctor')->count();
-        $appointmentsToday = Appointment::whereDate('appointment_date', Carbon::today())
+        $totalPatients = $patientsQuery->count(); // Patients aren't strictly scoped to hospitals, they are global. But we count all.
+        $totalDoctors = $doctorsQuery->count();
+        
+        $appointmentsToday = (clone $appointmentsQuery)
+            ->whereDate('appointment_date', Carbon::today())
             ->where('status', '!=', 'cancelled')
             ->count();
-        $pendingAppointments = Appointment::where('status', 'scheduled')->count();
-        $totalRevenue = \App\Models\Bill::sum('total_amount');
+            
+        $pendingAppointments = (clone $appointmentsQuery)
+            ->where('status', 'scheduled')
+            ->count();
 
-        $doctorStats = Appointment::select('doctor_id', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
+        // Revenue logic
+        // Bills are not explicitly scoped to hospital either. Wait, if $adminHospital is set, only sum bills from their doctors' prescriptions.
+        if ($adminHospital) {
+            $totalRevenue = \App\Models\Bill::whereHas('prescription.appointment', function($q) use ($doctorIds) {
+                $q->whereIn('doctor_id', $doctorIds);
+            })->sum('total_amount');
+        } else {
+            $totalRevenue = \App\Models\Bill::sum('total_amount');
+        }
+
+        $doctorStats = (clone $appointmentsQuery)
+            ->select('doctor_id', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
             ->groupBy('doctor_id')
             ->with('doctor')
             ->get();
@@ -28,8 +61,9 @@ class AdminDashboardController extends Controller
         // Recent Registrations (Last 5 users)
         $recentUsers = User::latest()->take(5)->get();
 
-        // Upcoming Appointments (Next 5 across the system)
-        $upcomingAppointments = Appointment::with(['patient', 'doctor'])
+        // Upcoming Appointments (Next 5 across the system/hospital)
+        $upcomingAppointments = (clone $appointmentsQuery)
+            ->with(['patient', 'doctor'])
             ->where('appointment_date', '>', Carbon::now())
             ->whereIn('status', ['scheduled', 'confirmed'])
             ->orderBy('appointment_date', 'asc')

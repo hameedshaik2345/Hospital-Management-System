@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'is_doctor' => \App\Http\Middleware\IsDoctor::class,
             'is_admin' => \App\Http\Middleware\IsAdmin::class,
             'is_pharmacist' => \App\Http\Middleware\IsPharmacist::class,
+            'verified_phone' => \App\Http\Middleware\EnsurePhoneIsVerified::class,
         ]);
 
         // CORRECTED REDIRECTION LOGIC

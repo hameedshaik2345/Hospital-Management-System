@@ -11,7 +11,16 @@ class AdminAppointmentController extends Controller
 {
     public function index(Request $request)
     {
+        $adminHospital = auth()->user()->hospital_name;
+        
         $query = Appointment::with(['patient', 'doctor'])->whereIn('status', ['scheduled', 'confirmed'])->orderBy('appointment_date', 'desc');
+
+        if ($adminHospital) {
+            $query->whereHas('doctor.doctorProfile', function ($q) use ($adminHospital) {
+                $q->where('hospital_name', $adminHospital);
+            });
+        }
+
 
         if ($request->filled('patient_name')) {
             $query->whereHas('patient', fn($q) => $q->where('name', 'like', '%' . $request->patient_name . '%'));
@@ -31,7 +40,13 @@ class AdminAppointmentController extends Controller
         }
 
         $appointments = $query->paginate(10);
-        $doctors = User::where('role', 'doctor')->orderBy('name')->get();
+        $doctorsQuery = User::where('role', 'doctor')->orderBy('name');
+        if (isset($adminHospital) && $adminHospital) {
+            $doctorsQuery->whereHas('doctorProfile', function ($q) use ($adminHospital) {
+                $q->where('hospital_name', $adminHospital);
+            });
+        }
+        $doctors = $doctorsQuery->get();
 
         return view('admin.appointments.index', compact('appointments', 'doctors'));
     }
@@ -114,18 +129,114 @@ class AdminAppointmentController extends Controller
         return response()->json(array_values($availableSlots));
     }
 
-    // In AdminAppointmentController.php
+    // Admin Walk-in Token Fetching
+    public function getAdminTokens(Request $request)
+    {
+        $request->validate([
+            'date' => 'required|date_format:Y-m-d',
+            'doctor_id' => 'required|exists:users,id',
+        ]);
+        $date = \Carbon\Carbon::parse($request->date);
+        $doctorId = $request->doctor_id;
+
+        $bookedTokens = Appointment::where('doctor_id', $doctorId)
+            ->whereDate('appointment_date', $date)
+            ->where('status', '!=', 'cancelled')
+            ->pluck('token_number')->toArray();
+
+        $allTokens = [];
+        for ($i = 1; $i <= 100; $i++) {
+            $group = floor(($i - 1) / 10);
+            $startTime = $date->copy()->setTime(9 + floor($group / 2), ($group % 2) * 30, 0);
+            $endTime = $startTime->copy()->addMinutes(30);
+
+            $allTokens[] = [
+                'token' => $i,
+                'time_label' => $startTime->format('g:i A') . ' - ' . $endTime->format('g:i A'),
+                'is_booked' => in_array($i, $bookedTokens),
+                'is_past' => false, // Admins can book any available token regardless of time
+                'is_admin_reserved' => ($i % 10 === 0)
+            ];
+        }
+        return response()->json($allTokens);
+    }
+
+    // Admin Walk-in Booking
+    public function storeWalkin(Request $request)
+    {
+        $validated = $request->validate([
+            'patient_name' => 'required|string|max:255',
+            'patient_phone' => 'required|string|max:15',
+            'doctor_id' => 'required|exists:users,id',
+            'appointment_date' => 'required|date_format:Y-m-d',
+            'token_number' => 'required|integer|min:1|max:100',
+        ]);
+
+        $doctor = User::find($validated['doctor_id']);
+        $dateStr = $validated['appointment_date'];
+
+        $isAlreadyBooked = Appointment::where('doctor_id', $doctor->id)
+            ->whereDate('appointment_date', $dateStr)
+            ->where('token_number', $validated['token_number'])
+            ->where('status', '!=', 'cancelled')
+            ->exists();
+
+        if ($isAlreadyBooked) {
+            return back()->withErrors(['error' => 'That token is already booked!']);
+        }
+
+        // Find or create Walk-in Patient
+        $patient = User::firstOrCreate(
+            ['phone_number' => $validated['patient_phone']],
+            [
+                'name' => $validated['patient_name'],
+                'role' => 'patient',
+                'password' => \Illuminate\Support\Facades\Hash::make('Walkin@123'),
+            ]
+        );
+
+        $group = floor(($validated['token_number'] - 1) / 10);
+        $appointmentTime = \Carbon\Carbon::parse($dateStr)->setTime(9 + floor($group / 2), ($group % 2) * 30, 0);
+
+        Appointment::create([
+            'patient_id' => $patient->id,
+            'doctor_id' => $doctor->id,
+            'doctor_name' => $doctor->name,
+            'doctor_specialty' => $doctor->specialty ?? 'Specialist',
+            'appointment_date' => $appointmentTime,
+            'status' => 'scheduled',
+            'reason' => 'Walk-in Consultation',
+            'is_paid' => false,
+            'token_number' => $validated['token_number'],
+        ]);
+
+        return redirect()->route('admin.appointments.index')->with('success', 'Walk-in appointment booked successfully! Token: ' . $validated['token_number']);
+    }
 
 public function edit(Appointment $appointment)
 {
-    $doctors = User::where('role', 'doctor')->orderBy('name')->get();
+    $adminHospital = auth()->user()->hospital_name;
+    $doctorsQuery = User::where('role', 'doctor')->orderBy('name');
+    if ($adminHospital) {
+        $doctorsQuery->whereHas('doctorProfile', function ($q) use ($adminHospital) {
+            $q->where('hospital_name', $adminHospital);
+        });
+    }
+    $doctors = $doctorsQuery->get();
     return view('admin.appointments.edit', compact('appointment', 'doctors'));
 }
 public function history(Request $request)
 {
+    $adminHospital = auth()->user()->hospital_name;
     $query = Appointment::with(['patient', 'doctor'])
                 ->whereIn('status', ['completed', 'cancelled']) // <-- Fetches past appointments
                 ->orderBy('appointment_date', 'desc');
+
+    if ($adminHospital) {
+        $query->whereHas('doctor.doctorProfile', function ($q) use ($adminHospital) {
+            $q->where('hospital_name', $adminHospital);
+        });
+    }
 
     // ... (You can add the same filtering logic here if needed) ...
 

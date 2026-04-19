@@ -99,9 +99,15 @@ class DoctorAppointmentController extends Controller
             'notes' => 'nullable|string'
         ]);
 
+        $doctorProfile = \App\Models\Doctor::where('user_id', $appointment->doctor_id)->first();
+
+        if (!$doctorProfile) {
+            return back()->with('error', 'Critical Error: Your official Doctor Profile was not found in the database. Please contact Admin.');
+        }
+
         \App\Models\Prescription::create([
             'patient_id' => $appointment->patient_id,
-            'doctor_id' => $appointment->doctor_id,
+            'doctor_id' => $doctorProfile->id,
             'appointment_id' => $appointment->id,
             'medicines' => json_encode($request->medicines),
             'notes' => $request->notes,

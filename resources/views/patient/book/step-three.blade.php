@@ -3,8 +3,8 @@
 
     <form id="bookingForm" method="POST" action="{{ route('patient.book.store.step.three') }}">
         @csrf
-        <!-- Hidden input to store the final selected datetime -->
-        <input type="hidden" name="appointment_time" id="appointment_time" required>
+        <input type="hidden" name="appointment_date" id="appointment_date" required>
+        <input type="hidden" name="token_number" id="token_number" required>
 
         <div class="card">
             <h3 class="h5 fw-bold mb-2">Select Date & Time</h3>
@@ -49,8 +49,12 @@
     .calendar-day.empty { cursor: default; }
     .calendar-day:not(.disabled):not(.empty):hover { background-color: #b9c6f3ff; }
     .calendar-day.selected { background-color: #2563eb; color: white; font-weight: bold; }
-    .time-slots-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; }
-    .time-slot-btn.selected { background-color: #2563eb; color: white; border-color: #2563eb; }
+    .tokens-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 0.4rem; }
+    .token-btn { padding: 0.4rem 0; font-size: 0.85rem; font-weight: 500; border-radius: 6px; border: 1px solid #dee2e6; background: #fff; cursor: pointer; transition: all 0.2s; }
+    .token-btn:not(:disabled):hover { background: #e2e8f0; border-color: #cbd5e1; }
+    .token-btn.selected { background-color: #2563eb; color: white; border-color: #2563eb; transform: scale(1.05); }
+    .token-btn.booked { background-color: #dc3545; color: white; cursor: not-allowed; border-color: #dc3545; opacity: 0.8; }
+    .token-btn.past { background-color: #6c757d; color: white; cursor: not-allowed; border-color: #6c757d; opacity: 0.6; }
 </style>
 
 @push('scripts')
@@ -142,13 +146,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function fetchAvailableSlots(date) {
-        timeSlotsContainer.innerHTML = '<p class="text-muted">Loading...</p>';
+        timeSlotsContainer.innerHTML = '<p class="text-muted">Loading tokens...</p>';
         nextButton.disabled = true;
-        selectedTime = null;
+        selectedTime = null; // actually selectedToken
+        document.getElementById('token_number').value = '';
 
         const doctorId = "{{ $booking['doctor']->id }}";
-
-        // CORRECTED: Using the route() helper to build the URL
         let urlTemplate = "{{ route('patient.api.doctors.slots', ['doctor' => ':doctorId']) }}";
         const url = `${urlTemplate.replace(':doctorId', doctorId)}?date=${date}`;
 
@@ -157,39 +160,88 @@ document.addEventListener('DOMContentLoaded', function () {
             const slots = await response.json();
 
             timeSlotsContainer.innerHTML = '';
-            if (Object.keys(slots).length > 0) {
-                slots.forEach(time => {
+            if (slots.length > 0) {
+                const grid = document.createElement('div');
+                grid.className = 'tokens-grid';
+                
+                let currentLabel = '';
+
+                slots.forEach(slot => {
+                    // Group headers for each block of 10 tokens
+                    if(currentLabel !== slot.time_label && slot.token % 10 === 1) {
+                        const labelDiv = document.createElement('div');
+                        labelDiv.style.gridColumn = 'span 10';
+                        labelDiv.className = 'fw-bold mt-2 mb-1 small text-primary border-bottom pb-1';
+                        labelDiv.textContent = `Approx. Time: ${slot.time_label}`;
+                        grid.appendChild(labelDiv);
+                        currentLabel = slot.time_label;
+                    }
+
                     const button = document.createElement('button');
                     button.type = 'button';
-                    button.className = 'btn btn-outline-primary time-slot-btn';
-                    button.dataset.time = time;
-                    button.textContent = time;
-                    timeSlotsContainer.appendChild(button);
+                    button.className = 'token-btn';
+                    button.dataset.token = slot.token;
+                    button.textContent = slot.token;
+                    button.title = slot.time_label;
+
+                    if (slot.is_admin_reserved) {
+                        button.classList.add('booked');
+                        button.disabled = true;
+                        button.title = 'Reserved for Walk-in Patients';
+                        button.style.backgroundColor = '#fd7e14'; // Orange for Walk-ins
+                        button.style.borderColor = '#fd7e14';
+                    } else if (slot.is_booked) {
+                        button.classList.add('booked');
+                        button.disabled = true;
+                        button.title = 'Already Booked';
+                    } else if (slot.is_past) {
+                        button.classList.add('past');
+                        button.disabled = true;
+                        button.title = 'Time Slot Passed';
+                    }
+
+                    grid.appendChild(button);
                 });
+                
+                timeSlotsContainer.appendChild(grid);
+                
+                // Add Legend
+                const legend = document.createElement('div');
+                legend.className = 'd-flex flex-wrap gap-3 mt-4 small justify-content-center p-3 bg-light rounded';
+                legend.innerHTML = `
+                    <div class="d-flex align-items-center"><span style="display:inline-block;width:14px;height:14px;background:#fff;border:1px solid #ccc;border-radius:3px;margin-right:6px;"></span> Available</div>
+                    <div class="d-flex align-items-center"><span style="display:inline-block;width:14px;height:14px;background:#2563eb;border-radius:3px;margin-right:6px;"></span> Selected</div>
+                    <div class="d-flex align-items-center"><span style="display:inline-block;width:14px;height:14px;background:#fd7e14;border-radius:3px;margin-right:6px;"></span> Walk-in Reserved</div>
+                    <div class="d-flex align-items-center"><span style="display:inline-block;width:14px;height:14px;background:#dc3545;border-radius:3px;margin-right:6px;"></span> Booked</div>
+                `;
+                timeSlotsContainer.appendChild(legend);
+
             } else {
-                timeSlotsContainer.innerHTML = '<p class="text-muted">No available slots for this day.</p>';
+                timeSlotsContainer.innerHTML = '<p class="text-muted">No tokens available for this day.</p>';
             }
         } catch (error) {
-            console.error('Error fetching slots:', error);
-            timeSlotsContainer.innerHTML = '<p class="text-danger">Could not load time slots.</p>';
+            console.error('Error fetching tokens:', error);
+            timeSlotsContainer.innerHTML = '<p class="text-danger">Could not load tokens.</p>';
         }
     }
 
     timeSlotsContainer.addEventListener('click', function(e) {
-        if (e.target.classList.contains('time-slot-btn')) {
-            document.querySelectorAll('.time-slot-btn.selected').forEach(b => b.classList.remove('selected'));
+        if (e.target.classList.contains('token-btn') && !e.target.disabled) {
+            document.querySelectorAll('.token-btn.selected').forEach(b => b.classList.remove('selected'));
             e.target.classList.add('selected');
-            selectedTime = e.target.dataset.time;
+            selectedTime = e.target.dataset.token;
             updateFinalInput();
         }
     });
 
     function updateFinalInput() {
         if (selectedDateStr && selectedTime) {
-            finalInput.value = `${selectedDateStr} ${selectedTime}`;
+            document.getElementById('appointment_date').value = selectedDateStr;
+            document.getElementById('token_number').value = selectedTime;
             nextButton.disabled = false;
         } else {
-            finalInput.value = '';
+            document.getElementById('appointment_date').value = '';
+            document.getElementById('token_number').value = '';
             nextButton.disabled = true;
         }
     }

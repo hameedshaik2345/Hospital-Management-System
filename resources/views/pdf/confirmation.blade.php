@@ -14,11 +14,13 @@
         .details-table .label { font-weight: bold; color: #555; width: 150px; }
         .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #888; }
     </style>
+
+    <link rel="icon" type="image/svg+xml" href="{{ asset('medflow-favicon.svg') }}">
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>HealthCare Plus</h1>
+            <h1>MedFlow</h1>
             <p>Appointment Confirmation</p>
         </div>
 
@@ -51,7 +53,7 @@
         </div>
 
         <div class="footer">
-            <p>Thank you for choosing HealthCare Plus. Please arrive 15 minutes early for your appointment.</p>
+            <p>Thank you for choosing MedFlow. Please arrive 15 minutes early for your appointment.</p>
             <p>If you need to reschedule, please visit your patient portal.</p>
         </div>
     </div>

@@ -43,7 +43,6 @@ public function store(LoginRequest $request): RedirectResponse
 
     $request->session()->regenerate();
 
-    // CORRECTED: Redirect to the new patient dashboard route
     return redirect()->intended(route('patient.dashboard'));
 }
     /**

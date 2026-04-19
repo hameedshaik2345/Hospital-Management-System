@@ -22,4 +22,9 @@ class Prescription extends Model
     {
         return $this->belongsTo(Appointment::class, 'appointment_id');
     }
+
+    public function bill()
+    {
+        return $this->hasOne(Bill::class, 'prescription_id');
+    }
 }

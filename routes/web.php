@@ -56,7 +56,15 @@ Route::middleware('auth')->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
     Route::put('password', [PasswordController::class, 'update'])->name('password.update');
     // --- PATIENT-ONLY ROUTES ---
-    Route::prefix('patient')->middleware('is_patient')->name('patient.')->group(function () {
+    Route::prefix('patient')->middleware(['is_patient'])->name('patient.')->group(function () {
+        // Phone Verification
+        Route::get('/verify-phone', [\App\Http\Controllers\Auth\PhoneVerificationController::class, 'show'])->name('verify-phone');
+        Route::post('/verify-phone', [\App\Http\Controllers\Auth\PhoneVerificationController::class, 'verify']);
+        Route::post('/verify-phone/resend', [\App\Http\Controllers\Auth\PhoneVerificationController::class, 'resend'])->name('verify-phone.resend');
+
+        // Push Notifications
+        Route::post('/push/subscribe', [\App\Http\Controllers\PushNotificationController::class, 'subscribe'])->name('push.subscribe');
+
         Route::get('/dashboard', [PatientDashboardController::class, 'index'])->name('dashboard');
 
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -66,6 +74,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/symptoms', [\App\Http\Controllers\SymptomAnalyzerController::class, 'analyze'])->name('symptoms.analyze');
 
         Route::post('/book-appointment/{appointment}/pay', [AppointmentBookingController::class, 'pay'])->name('book.pay');
+        Route::post('/book-appointment/{appointment}/verify', [AppointmentBookingController::class, 'verifyBookingPayment'])->name('book.verify');
+        Route::post('/prescriptions/{prescription}/pay', [PatientDashboardController::class, 'payBill'])->name('prescriptions.pay');
+        Route::post('/prescriptions/{prescription}/verify-payment', [PatientDashboardController::class, 'verifyPayment'])->name('prescriptions.verify');
 
         Route::get('/appointment-history', [ManageAppointmentController::class, 'history'])->name('appointments.history');
         Route::resource('/appointments', ManageAppointmentController::class)->except(['create', 'store', 'edit']);
@@ -76,6 +87,7 @@ Route::middleware('auth')->group(function () {
         // In routes/web.php -> inside Route::prefix('patient')->...->group()
 
         Route::get('/api/doctors/{doctor}/available-slots', [AppointmentBookingController::class, 'getAvailableSlots'])->name('api.doctors.slots');
+        Route::get('/api/doctors/{doctor}/live-status', [AppointmentBookingController::class, 'getLiveStatus'])->name('api.doctors.live_status');
 
         // Booking Flow
         Route::get('book-appointment/step-1', [AppointmentBookingController::class, 'createStepOne'])->name('book.create.step.one');
@@ -99,6 +111,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/appointments/{appointment}/prescription', [DoctorAppointmentController::class, 'createPrescription'])->name('appointments.prescription.create');
         Route::post('/appointments/{appointment}/prescription', [DoctorAppointmentController::class, 'storePrescription'])->name('appointments.prescription.store');
         Route::get('/api/appointments-by-date', [DoctorDashboardController::class, 'getAppointmentsForDate'])->name('api.appointments.by_date');
+        Route::post('/api/live-status/update', [DoctorDashboardController::class, 'updateLiveStatus'])->name('api.live_status.update');
+        Route::post('/api/live-status/increment', [DoctorDashboardController::class, 'incrementLiveToken'])->name('api.live_status.increment');
         Route::put('/password', [DoctorProfileController::class, 'updatePassword'])->name('password.update');
         Route::get('/schedule/export-pdf', [ExportController::class, 'exportDoctorSchedule'])->name('schedule.export.doctor');
         Route::get('/history/export-pdf', [ExportController::class, 'exportDoctorHistory'])->name('history.export.doctor');
@@ -113,6 +127,8 @@ Route::middleware('auth')->group(function () {
         Route::patch('/appointments/{appointment}', [AdminAppointmentController::class, 'update'])->name('appointments.update');
         Route::delete('/appointments/{appointment}', [AdminAppointmentController::class, 'destroy'])->name('appointments.destroy');
         Route::get('/api/available-slots', [AdminAppointmentController::class, 'getAvailableSlots'])->name('api.available_slots');
+        Route::get('/api/admin-tokens', [AdminAppointmentController::class, 'getAdminTokens'])->name('api.admin_tokens');
+        Route::post('/walkin', [AdminAppointmentController::class, 'storeWalkin'])->name('walkin.store');
         // In routes/web.php -> ADMIN-ONLY ROUTES block
         Route::get('/appointment-history', [AdminAppointmentController::class, 'history'])->name('appointments.history');
         Route::get('/appointments/{appointment}/edit', [AdminAppointmentController::class, 'edit'])->name('appointments.edit');

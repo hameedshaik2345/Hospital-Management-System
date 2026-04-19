@@ -61,7 +61,7 @@ public function store(Request $request): RedirectResponse
 
     Auth::login($user);
 
-    // CORRECTED: Redirect to the new patient dashboard route
+    // Redirect directly to patient dashboard (phone verification disabled)
     return redirect()->route('patient.dashboard');
 }
 }

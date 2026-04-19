@@ -17,13 +17,18 @@
                     @csrf
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <label>Consultation Fee</label>
-                            <input type="number" step="0.01" name="consultation_fee" class="form-control" value="50.00"
-                                required>
+                            <label>Consultation Fee (&#x20B9;)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">&#x20B9;</span>
+                                <input type="number" step="0.01" name="consultation_fee" class="form-control" value="50.00" required>
+                            </div>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <label>Medicines Cost</label>
-                            <input type="number" step="0.01" name="medicine_cost" class="form-control" required>
+                            <label>Medicines Cost (&#x20B9;)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">&#x20B9;</span>
+                                <input type="number" step="0.01" name="medicine_cost" class="form-control" required>
+                            </div>
                         </div>
                     </div>
                     <button class="btn btn-primary" type="submit">Submit Bill & Mark Completed</button>

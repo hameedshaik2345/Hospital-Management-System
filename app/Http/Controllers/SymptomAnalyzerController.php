@@ -46,7 +46,43 @@ class SymptomAnalyzerController extends Controller
         ]);
 
         $doctors = User::where('role', 'doctor')
-            ->whereIn('specialty', $matchedSpecializations)->get();
+            ->where(function($query) use ($matchedSpecializations) {
+                foreach ($matchedSpecializations as $spec) {
+                    $query->orWhere('specialty', 'LIKE', '%' . $spec . '%');
+                }
+            })
+            ->with('doctorProfile')
+            ->get();
+
+        $lat = $request->input('lat');
+        $lng = $request->input('lng');
+        $dbHospitals = \App\Models\Hospital::all()->keyBy('name');
+
+        $doctors->transform(function ($doctor) use ($lat, $lng, $dbHospitals) {
+            $hospitalName = $doctor->doctorProfile->hospital_name ?? 'MedFlow';
+            $hospitalObj = $dbHospitals->get($hospitalName);
+            $distance = null;
+
+            if ($hospitalObj) {
+                $doctor->hospital_lat = $hospitalObj->latitude;
+                $doctor->hospital_lng = $hospitalObj->longitude;
+            }
+
+            if ($lat && $lng && $hospitalObj && $hospitalObj->latitude && $hospitalObj->longitude) {
+                $theta = $lng - $hospitalObj->longitude;
+                $dist = sin(deg2rad($lat)) * sin(deg2rad($hospitalObj->latitude)) +  cos(deg2rad($lat)) * cos(deg2rad($hospitalObj->latitude)) * cos(deg2rad($theta));
+                $dist = acos($dist);
+                $dist = rad2deg($dist);
+                $distance = round($dist * 60 * 1.1515 * 1.609344, 2);
+            }
+            
+            $doctor->hospital_distance = $distance;
+            return $doctor;
+        });
+
+        if ($lat && $lng) {
+            $doctors = $doctors->sortBy('hospital_distance')->values();
+        }
 
         return view('patient.symptoms.results', compact('matchedSpecializations', 'doctors', 'symptomsStr'));
     }

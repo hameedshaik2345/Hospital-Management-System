@@ -7,4 +7,9 @@ use Illuminate\Database\Eloquent\Model;
 class Bill extends Model
 {
     protected $guarded = [];
+
+    public function prescription()
+    {
+        return $this->belongsTo(Prescription::class);
+    }
 }

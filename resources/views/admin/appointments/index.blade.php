@@ -1,27 +1,34 @@
 <x-layouts.admin>
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="h3 fw-bold">All Appointments</h2>
-    <a href="{{ route('admin.schedule.export.admin') }}" class="btn btn-primary">
-        Export Today's Schedule (PDF)
-    </a>
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-4">
+        <h2 class="h3 fw-bold mb-0">All Appointments</h2>
+        <div class="d-flex flex-wrap gap-2">
+            <button type="button" class="btn btn-success shadow-sm flex-grow-1 flex-md-grow-0" data-bs-toggle="modal" data-bs-target="#walkinModal">
+                <i class="bi bi-person-plus-fill"></i> Book Walk-in
+            </button>
+            <a href="{{ route('admin.schedule.export.admin') }}" class="btn btn-primary shadow-sm flex-grow-1 flex-md-grow-0">
+                <i class="bi bi-file-earmark-pdf-fill"></i> <span class="d-none d-sm-inline">Export Today's Schedule</span><span class="d-sm-none">Export</span>
+            </a>
+        </div>
     </div>
 
     <!-- Filter Bar -->
-    <div class="card mb-4">
-        <form action="{{ route('admin.appointments.index') }}" method="GET">
-            <div class="row g-3 align-items-end">
-                <div class="col-md-3"><label class="form-label">Patient Name</label><input type="text" name="patient_name" class="form-control" value="{{ request('patient_name') }}"></div>
-                <div class="col-md-3"><label class="form-label">Doctor Name</label><input type="text" name="doctor_name" class="form-control" value="{{ request('doctor_name') }}"></div>
-                <div class="col-md-2"><label class="form-label">Status</label><select name="status" class="form-select"><option value="all">All</option><option value="scheduled">Scheduled</option><option value="confirmed">Confirmed</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
-                <div class="col-md-2"><label class="form-label">Date Range</label><select name="date_range" class="form-select"><option value="all">All</option><option value="today">Today</option><option value="upcoming">Upcoming</option><option value="past">Past</option></select></div>
-                <div class="col-md-2">
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary w-100">Filter</button>
-                        <a href="{{ route('admin.users.index') }}" class="btn btn-light w-50">Clear</a>
+    <div class="card mb-4 border-0 shadow-sm">
+        <div class="card-body p-3">
+            <form action="{{ route('admin.appointments.index') }}" method="GET">
+                <div class="row g-2 align-items-end">
+                    <div class="col-sm-6 col-md-3"><label class="form-label small fw-bold">Patient Name</label><input type="text" name="patient_name" class="form-control form-control-sm" value="{{ request('patient_name') }}"></div>
+                    <div class="col-sm-6 col-md-3"><label class="form-label small fw-bold">Doctor Name</label><input type="text" name="doctor_name" class="form-control form-control-sm" value="{{ request('doctor_name') }}"></div>
+                    <div class="col-6 col-md-2"><label class="form-label small fw-bold">Status</label><select name="status" class="form-select form-select-sm"><option value="all">All</option><option value="scheduled">Scheduled</option><option value="confirmed">Confirmed</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></div>
+                    <div class="col-6 col-md-2"><label class="form-label small fw-bold">Date Range</label><select name="date_range" class="form-select form-select-sm"><option value="all">All</option><option value="today">Today</option><option value="upcoming">Upcoming</option><option value="past">Past</option></select></div>
+                    <div class="col-12 col-md-2">
+                        <div class="d-flex gap-2 h-100">
+                            <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Filter</button>
+                            <a href="{{ route('admin.users.index') }}" class="btn btn-light btn-sm flex-grow-1 border">Clear</a>
+                        </div>
                     </div>
-                </div>
-            </div> 
-        </form>
+                </div> 
+            </form>
+        </div>
     </div>
 
     @if (session('success'))<div class="alert alert-success">{{ session('success') }}</div>@endif
@@ -66,6 +73,60 @@
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4" id="viewAppointmentDetails"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Walk-in Booking Modal -->
+    <div class="modal fade" id="walkinModal" tabindex="-1">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content custom-modal-content">
+                <div class="custom-modal-header" style="background: linear-gradient(135deg, #28a745, #20c997);">
+                    <div class="icon-box"><i class="bi bi-person-plus-fill fs-2"></i></div>
+                    <h4 class="modal-title">Book Walk-in Patient</h4>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form action="{{ route('admin.walkin.store') }}" method="POST">
+                        @csrf
+                        <input type="hidden" name="token_number" id="walkin_token_number" required>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Patient Name</label>
+                                <input type="text" name="patient_name" class="form-control" required placeholder="e.g. John Doe">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Patient Phone</label>
+                                <input type="text" name="patient_phone" class="form-control" required placeholder="10-digit number">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Doctor</label>
+                                <select name="doctor_id" id="walkin_doctor_id" class="form-select" required>
+                                    <option value="" disabled selected>Select Doctor</option>
+                                    @foreach($doctors as $doctor)
+                                        <option value="{{ $doctor->id }}">{{ $doctor->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold">Date</label>
+                                <input type="text" name="appointment_date" id="walkin_date" class="form-control" placeholder="Click to select date" required readonly style="background:#fff;">
+                            </div>
+                            
+                            <div class="col-12 mt-4" id="walkin_tokens_container" style="display:none;">
+                                <h5 class="fw-bold mb-3 border-bottom pb-2">Select a Token <small class="text-muted fw-normal">(🟡 = Walk-in Reserved | 🔴 = Booked)</small></h5>
+                                <div id="walkin-slots" class="d-flex flex-wrap gap-1">
+                                    <!-- Tokens will render here -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end mt-4">
+                            <button type="submit" class="btn btn-success btn-lg px-5 shadow-sm" id="walkin_submit" disabled>Book Now</button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -173,6 +234,84 @@
             }
             timeSelect.value = selectedTime;
         });
+
+        // SCRIPT FOR WALKIN MODAL
+        const walkinDateInput = document.getElementById('walkin_date');
+        const walkinDoctorSelect = document.getElementById('walkin_doctor_id');
+        const walkinSlotsContainer = document.getElementById('walkin-slots');
+        const walkinTokenInput = document.getElementById('walkin_token_number');
+        const walkinSubmit = document.getElementById('walkin_submit');
+        const walkinTokensContainer = document.getElementById('walkin_tokens_container');
+        
+        let walkinFp = flatpickr(walkinDateInput, {
+            dateFormat: "Y-m-d",
+            minDate: "today",
+            onChange: function(selectedDates, dateStr, instance) {
+                fetchWalkinTokens();
+            }
+        });
+
+        // Also reset walk-in modal when it opens
+        document.getElementById('walkinModal').addEventListener('show.bs.modal', function() {
+            walkinTokensContainer.style.display = 'none';
+            walkinSlotsContainer.innerHTML = '';
+            walkinTokenInput.value = '';
+            walkinSubmit.disabled = true;
+        });
+
+        async function fetchWalkinTokens() {
+            const date = walkinDateInput.value;
+            const doctorId = walkinDoctorSelect.value;
+            
+            walkinTokenInput.value = '';
+            walkinSubmit.disabled = true;
+
+            if (!date || !doctorId) return;
+
+            walkinTokensContainer.style.display = 'block';
+            walkinSlotsContainer.innerHTML = '<span class="text-muted"><div class="spinner-border spinner-border-sm me-2"></div> Loading tokens...</span>';
+
+            const response = await fetch(`{{ route("admin.api.admin_tokens") }}?date=${date}&doctor_id=${doctorId}`);
+            const slots = await response.json();
+            
+            walkinSlotsContainer.innerHTML = '';
+            
+            if (slots.length > 0) {
+                slots.forEach(slot => {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.className = `btn btn-sm ${slot.is_admin_reserved && !slot.is_booked ? 'btn-outline-warning' : 'btn-outline-primary'} flex-fill`;
+                    btn.style.width = 'calc(10% - 0.5rem)';
+                    btn.textContent = slot.token;
+                    btn.title = slot.time_label;
+                    
+                    if (slot.is_booked) {
+                        btn.className = 'btn btn-sm btn-danger text-white flex-fill';
+                        btn.disabled = true;
+                        btn.title = 'Already Booked';
+                    } else if (slot.is_past) {
+                        btn.className = 'btn btn-sm btn-secondary text-white flex-fill';
+                        btn.disabled = true;
+                    } else {
+                        btn.addEventListener('click', () => {
+                            walkinSlotsContainer.querySelectorAll('button').forEach(b => {
+                                if(!b.disabled) b.classList.remove('active', 'btn-primary', 'btn-warning', 'text-white');
+                            });
+                            btn.classList.add('active', 'text-white');
+                            btn.classList.add(slot.is_admin_reserved ? 'btn-warning' : 'btn-primary');
+                            walkinTokenInput.value = slot.token;
+                            walkinSubmit.disabled = false;
+                        });
+                    }
+                    walkinSlotsContainer.appendChild(btn);
+                });
+            } else {
+                walkinSlotsContainer.innerHTML = '<span class="text-muted">No tokens available.</span>';
+            }
+        }
+
+        walkinDateInput.addEventListener('change', fetchWalkinTokens);
+        walkinDoctorSelect.addEventListener('change', fetchWalkinTokens);
     </script>
     @endpush
 </x-layouts.admin>

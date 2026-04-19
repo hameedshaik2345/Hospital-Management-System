@@ -13,7 +13,9 @@
 
         <!-- Scripts -->
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-    </head>
+    
+    <link rel="icon" type="image/svg+xml" href="{{ asset('medflow-favicon.svg') }}">
+</head>
     <body class="font-sans antialiased">
         <div class="min-h-screen bg-gray-100">
             @include('layouts.navigation')

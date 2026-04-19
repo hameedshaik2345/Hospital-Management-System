@@ -9,6 +9,8 @@
         .card { width: 100%; max-width: 600px; }
         [x-cloak] { display: none !important; }
     </style>
+
+    <link rel="icon" type="image/svg+xml" href="{{ asset('medflow-favicon.svg') }}">
 </head>
 <body>
     <div class="card shadow-lg">

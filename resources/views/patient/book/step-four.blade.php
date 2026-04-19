@@ -10,8 +10,16 @@
                 <div class="col-md-6"><strong>Doctor</strong><p>{{ $booking['doctor']->name }}</p></div>
                 <div class="col-md-6"><strong>Specialty</strong><p>{{ $booking['doctor']->specialty }}</p></div>
                 <div class="col-md-6"><strong>Department</strong><p>{{ $booking['doctor']->department }}</p></div>
-                <div class="col-md-6"><strong>Date</strong><p>{{ \Carbon\Carbon::parse($booking['appointment_time'])->format('Y-m-d') }}</p></div>
-                <div class="col-md-6"><strong>Time</strong><p>{{ \Carbon\Carbon::parse($booking['appointment_time'])->format('H:i') }}</p></div>
+                @php
+                    $group = floor(($booking['token_number'] - 1) / 10);
+                    $startTime = \Carbon\Carbon::parse($booking['appointment_date'])->setTime(9 + floor($group / 2), ($group % 2) * 30, 0);
+                    $endTime = $startTime->copy()->addMinutes(30);
+                @endphp
+                <div class="col-md-6"><strong>Date</strong><p>{{ \Carbon\Carbon::parse($booking['appointment_date'])->format('Y-m-d') }}</p></div>
+                <div class="col-md-6"><strong>Token Number</strong>
+                    <p class="mb-0 fs-5 text-primary fw-bold">#{{ $booking['token_number'] }}</p>
+                    <p class="text-muted small">Approx: {{ $startTime->format('g:i A') }} - {{ $endTime->format('g:i A') }}</p>
+                </div>
                  <div class="col-12">
                     <label for="reason" class="form-label">Additional Notes / Reason for Visit (Optional)</label>
                     <textarea name="reason" id="reason" class="form-control" rows="3" placeholder="Please describe your symptoms or reason for the appointment..."></textarea>

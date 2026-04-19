@@ -89,11 +89,7 @@
                         <button type="submit" class="btn btn-sm btn-info">Confirm</button>
                     </form>
                     @endif
-                    <form action="{{ route('doctor.appointments.updateStatus', $appointment) }}" method="POST">
-                        @csrf @method('PATCH')
-                        <input type="hidden" name="status" value="completed">
-                        <button type="submit" class="btn btn-sm btn-success">Complete</button>
-                    </form>
+
                     <a href="{{ route('doctor.appointments.prescription.create', $appointment) }}" class="btn btn-sm btn-primary">Write Prescription</a>
                     <form action="{{ route('doctor.appointments.updateStatus', $appointment) }}" method="POST">
                         @csrf @method('PATCH')

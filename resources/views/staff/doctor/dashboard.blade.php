@@ -4,11 +4,49 @@
         <p class="text-muted">Manage your appointments and patient care.</p>
     </div>
 
-    <div class="row g-4 mb-5">
-        <div class="col-md-3"><div class="card"><h5>Total Appointments</h5><p class="fs-2 fw-bold mb-0">{{ $stats['total'] }}</p></div></div>
-        <div class="col-md-3"><div class="card"><h5>Upcoming</h5><p class="fs-2 fw-bold text-warning mb-0">{{ $stats['upcoming'] }}</p></div></div>
-        <div class="col-md-3"><div class="card"><h5>Completed</h5><p class="fs-2 fw-bold text-success mb-0">{{ $stats['completed'] }}</p></div></div>
-        <div class="col-md-3"><div class="card"><h5>Patients Today</h5><p class="fs-2 fw-bold text-info mb-0">{{ $stats['patients_today'] }}</p></div></div>
+    <div class="row g-4 mb-4">
+        <div class="col-lg-8">
+            <div class="row g-4 mb-4">
+                <div class="col-md-6"><div class="card h-100"><h5>Total Appointments</h5><p class="fs-2 fw-bold mb-0">{{ $stats['total'] }}</p></div></div>
+                <div class="col-md-6"><div class="card h-100"><h5>Upcoming</h5><p class="fs-2 fw-bold text-warning mb-0">{{ $stats['upcoming'] }}</p></div></div>
+                <div class="col-md-6"><div class="card h-100"><h5>Completed</h5><p class="fs-2 fw-bold text-success mb-0">{{ $stats['completed'] }}</p></div></div>
+                <div class="col-md-6"><div class="card h-100"><h5>Patients Today</h5><p class="fs-2 fw-bold text-info mb-0">{{ $stats['patients_today'] }}</p></div></div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card h-100 border-0 shadow-sm" style="background: linear-gradient(135deg, #e0f2fe 0%, #f8fafc 100%);">
+                <div class="card-body p-4">
+                    <h4 class="fw-bold mb-4 text-primary d-flex align-items-center">
+                        <span class="bg-primary bg-opacity-10 p-2 rounded-3 me-2">
+                            <i class="bi bi-broadcast"></i>
+                        </span>
+                        Live Control
+                    </h4>
+                    
+                    <div class="text-center mb-5 p-3 bg-white rounded-4 shadow-sm">
+                        <p class="text-muted small mb-1 fw-semibold text-uppercase tracking-wider">Currently Serving</p>
+                        <div class="display-2 fw-bold text-dark" id="live-token-display">
+                            #{{ $doctor->doctorProfile->current_token ?? 0 }}
+                        </div>
+                        <button class="btn btn-primary btn-lg w-100 rounded-pill mt-3 py-3 shadow fw-bold" id="next-token-btn">
+                            <i class="bi bi-person-plus-fill me-2"></i> NEXT PATIENT
+                        </button>
+                    </div>
+
+                    <div class="bg-white p-3 rounded-4 shadow-sm">
+                        <label class="fw-bold mb-3 small text-muted text-uppercase">Availability Status</label>
+                        <select class="form-select form-select-lg border-0 bg-light cursor-pointer" id="live-status-select">
+                            <option value="Available" {{ ($doctor->doctorProfile->live_status ?? '') == 'Available' ? 'selected' : '' }}>🟢 Available</option>
+                            <option value="Lunch Break" {{ ($doctor->doctorProfile->live_status ?? '') == 'Lunch Break' ? 'selected' : '' }}>🍔 Lunch Break</option>
+                            <option value="In Surgery" {{ ($doctor->doctorProfile->live_status ?? '') == 'In Surgery' ? 'selected' : '' }}>✂️ In Surgery</option>
+                            <option value="Rounding Wards" {{ ($doctor->doctorProfile->live_status ?? '') == 'Rounding Wards' ? 'selected' : '' }}>🏥 Ward Rounds</option>
+                            <option value="Out of Office" {{ ($doctor->doctorProfile->live_status ?? '') == 'Out of Office' ? 'selected' : '' }}>🔴 Out of Office</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <h3 class="h4 fw-bold mb-3">Check Daily Schedule</h3>
@@ -140,6 +178,46 @@
         const selectedDayContainer = document.getElementById('selected-day-container');
         const scheduleTitle = document.getElementById('schedule-title');
         const scheduleContainer = document.getElementById('schedule-list-container');
+        
+        // --- Live Tracker Script ---
+        const nextTokenBtn = document.getElementById('next-token-btn');
+        const statusSelect = document.getElementById('live-status-select');
+        const tokenDisplay = document.getElementById('live-token-display');
+
+        if(nextTokenBtn) {
+            nextTokenBtn.addEventListener('click', async () => {
+                try {
+                    const res = await fetch("{{ route('doctor.api.live_status.increment') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        }
+                    });
+                    const data = await res.json();
+                    if(data.success) {
+                        tokenDisplay.textContent = '#' + data.current_token;
+                    }
+                } catch(e) { console.error('Error incrementing token', e); }
+            });
+        }
+
+        if(statusSelect) {
+            statusSelect.addEventListener('change', async (e) => {
+                const newStatus = e.target.value;
+                try {
+                    await fetch("{{ route('doctor.api.live_status.update') }}", {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({ status: newStatus })
+                    });
+                } catch(e) { console.error('Error updating status', e); }
+            });
+        }
+
         
         let currentDate = new Date();
         currentDate.setDate(1);

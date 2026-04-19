@@ -17,8 +17,20 @@ public function index(Request $request)
     
 
     $query = User::orderBy('created_at', 'desc')
-                // THIS IS THE NEW LINE THAT FIXES THE ISSUE
                 ->where('id', '!=', Auth::id());
+
+    $adminHospital = Auth::user()->hospital_name;
+    if ($adminHospital) {
+        $query->where(function($q) use ($adminHospital) {
+            $q->where('role', 'patient') // Admins can see all patients for system usage
+              ->orWhere(function($subQ) use ($adminHospital) {
+                  $subQ->where('role', 'doctor')
+                       ->whereHas('doctorProfile', function($docQ) use ($adminHospital) {
+                           $docQ->where('hospital_name', $adminHospital);
+                       });
+              });
+        });
+    }
 
     // Handle role filter
     if ($request->filled('role') && $request->role != 'all') {

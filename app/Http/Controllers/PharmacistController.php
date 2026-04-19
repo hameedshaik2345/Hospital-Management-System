@@ -10,17 +10,30 @@ class PharmacistController extends Controller
 {
     public function index(Request $request)
     {
-        $doctors = \App\Models\User::where('role', 'doctor')->with('doctorProfile')->get();
+        $pharmacistHospital = auth()->user()->hospital_name;
+        
+        $doctorsQuery = \App\Models\User::where('role', 'doctor')->with('doctorProfile');
+        if ($pharmacistHospital) {
+            $doctorsQuery->whereHas('doctorProfile', function($q) use ($pharmacistHospital) {
+                $q->where('hospital_name', $pharmacistHospital);
+            });
+        }
+        $doctors = $doctorsQuery->get();
         $prescription = null;
 
         if ($request->filled('token_number') && $request->filled('doctor_id')) {
-            $prescription = Prescription::with(['patient', 'doctor', 'appointment'])
-                ->where('doctor_id', $request->doctor_id)
-                ->where('status', 'pending')
-                ->whereHas('appointment', function ($q) use ($request) {
-                    $q->where('token_number', $request->token_number);
-                })
-                ->first();
+            $doctorProfile = \App\Models\Doctor::where('user_id', $request->doctor_id)->first();
+
+            if ($doctorProfile) {
+                $prescription = Prescription::with(['patient', 'doctor', 'appointment'])
+                    ->where('doctor_id', $doctorProfile->id)
+                    ->where('status', 'pending')
+                    ->doesntHave('bill')
+                    ->whereHas('appointment', function ($q) use ($request) {
+                        $q->where('token_number', $request->token_number);
+                    })
+                    ->first();
+            }
         }
 
         return view('pharmacist.dashboard.index', compact('doctors', 'prescription'));
@@ -47,8 +60,6 @@ class PharmacistController extends Controller
             'total_amount' => $total,
         ]);
 
-        $prescription->update(['status' => 'completed']);
-
-        return redirect()->route('pharmacist.dashboard')->with('success', 'Bill generated successfully!');
+        return redirect()->route('pharmacist.dashboard')->with('success', 'Bill generated! Sent to Patient Dashboard for payment.');
     }
 }
